@@ -1,11 +1,10 @@
-// yt-ad-skip-agent
+// yt-ad-skip-agent-standalone
 
 let pref = undefined;
-let cache_browser_ui_size = undefined;
 let interval_id = 0;
 
 const _SelectorList = [
-    "#button-shape",
+    //"#button-shape",
     "#skip-button\\:2",
     ".ytp-skip-ad-button"
 ];
@@ -33,7 +32,6 @@ async function get_skip_coord()
         return;
     }
 
-    console.log( skipbtn );
     await chrome.runtime.sendMessage( {
         msg: "CLICK_SKIP",
         params: {

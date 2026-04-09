@@ -1,10 +1,11 @@
-//yt-ad-skip-agent-worker
-// yt_ad_skip_input
+//yt-ad-skip-agent-standalone-worker
 
-let port = undefined;
-let request_map = new Map();
+const SUSPEND_ALARM_NAME = "suspend_timer";
+const SUSPEND_DELAY_MIN  = 180;
 
-const TIME_TO_INACTIVE = 20;
+let is_suspend = false;
+
+chrome.idle.setDetectionInterval( 30 );
 
 function rotMode( mode )
 {
@@ -37,9 +38,25 @@ function displayStatus( state )
     chrome.action.setBadgeBackgroundColor( { color: bgcolor } );
 }
 
-chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
-    console.log( "onmessage:" + msg.msg);
+function set_suspend_alarm( state )
+{
+    if( state == "active" ){
+        chrome.alarms.clear( SUSPEND_ALARM_NAME );
+        is_suspend = false;
+    } else{
+        chrome.alarms.create( SUSPEND_ALARM_NAME, {
+            delayInMinutes: SUSPEND_DELAY_MIN
+        } );
+    }
+}
 
+chrome.alarms.onAlarm.addListener( ( alarm ) => {
+    if( alarm.name == SUSPEND_ALARM_NAME ){
+        is_suspend = true;
+    }
+} );
+
+chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
     if( ! sender.tab ) return;
 
     msg.windowId = sender.tab.windowId;
@@ -47,6 +64,8 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
 
     switch( msg.msg ){
         case "CLICK_SKIP":
+            if( is_suspend ) break;
+
             chrome.debugger.attach( { tabId: msg.tabId }, "1.3", async () => {
                 await chrome.debugger.sendCommand(
                     { tabId: msg.tabId },
@@ -104,8 +123,16 @@ chrome.commands.onCommand.addListener( async ( command ) => {
     }
 } );
 
+chrome.idle.onStateChanged.addListener( ( state ) => {
+    set_suspend_alarm( state );
+} );
+
 ( async () => {
     let pref = await chrome.storage.local.get( "mode" );
+
+    await chrome.idle.queryState( 30, ( state ) => {
+        set_suspend_alarm( state );
+    } );
 
     if( pref && "mode" in pref ){
         displayStatus( pref.mode );
