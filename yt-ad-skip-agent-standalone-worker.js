@@ -7,6 +7,22 @@ let is_suspend = false;
 
 chrome.idle.setDetectionInterval( 30 );
 
+async function init()
+{
+    let pref = await chrome.storage.local.get( "mode" );
+
+    await chrome.idle.queryState( 30, ( state ) => {
+        set_suspend_alarm( state );
+    } );
+
+    if( pref && "mode" in pref ){
+        displayStatus( pref.mode );
+    } else{
+        await chrome.storage.local.set( { mode: 0 } );
+        displayStatus( 0 );
+    }
+}
+
 function rotMode( mode )
 {
     mode++;
@@ -95,11 +111,6 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
     }
 } );
 
-chrome.runtime.onInstalled.addListener( async () => {
-    await chrome.storage.local.set( { mode: 0 } );
-    displayStatus( 0 );
-} );
-
 chrome.action.onClicked.addListener( async () => {
     let pref = await chrome.storage.local.get( "mode" );
     pref.mode = rotMode( pref.mode );
@@ -127,17 +138,5 @@ chrome.idle.onStateChanged.addListener( ( state ) => {
     set_suspend_alarm( state );
 } );
 
-( async () => {
-    let pref = await chrome.storage.local.get( "mode" );
-
-    await chrome.idle.queryState( 30, ( state ) => {
-        set_suspend_alarm( state );
-    } );
-
-    if( pref && "mode" in pref ){
-        displayStatus( pref.mode );
-    } else{
-        await chrome.storage.local.set( { mode: 0 } );
-        displayStatus( 0 );
-    }
-} )();
+chrome.runtime.onInstalled.addListener( init );
+chrome.runtime.onStartup.addListener( init );

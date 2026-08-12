@@ -1,6 +1,6 @@
 {
   "name": "YouTube Ad Skip Agent Standalone",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "manifest_version": 3,
   "description": "スキップボタンの座標を取得して代理クリック",
     "icons": {
