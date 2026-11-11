@@ -1,29 +1,28 @@
 // yt-ad-skip-agent-standalone
 
-let pref = undefined;
-let interval_id = 0;
+let mIntervalId = 0;
 
-const _SelectorList = [
-    //"#button-shape",
+const mSelectorList = [
+    "#button-shape",
     "#skip-button\\:2",
     ".ytp-skip-ad-button"
 ];
 
-async function get_skip_coord()
+function get_skip_coord()
 {
-    if( ! pref.mode || document.hidden ) return;
+    if( document.hidden ) return;
 
-    const skipbtn = document.querySelector( _SelectorList.join(",") );
+    const skipbtn = document.querySelector( mSelectorList.join(",") );
     if( ! skipbtn ) return;
 
     const style = getComputedStyle( skipbtn );
     const rect  = skipbtn.getBoundingClientRect();
     const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
     if(
-        skipbtn.offsetParent == null     ||
-        style.display        == "none"   ||
-        style.visibility     == "hidden" ||
-        parseFloat( style.opacity ) == 0 ||
+        skipbtn.offsetParent === null     ||
+        style.display        === "none"   ||
+        style.visibility     === "hidden" ||
+        parseFloat( style.opacity ) === 0 ||
         cx < 0 ||
         cx > window.innerWidth ||
         cy < 0 ||
@@ -32,36 +31,47 @@ async function get_skip_coord()
         return;
     }
 
-    await chrome.runtime.sendMessage( {
-        msg: "CLICK_SKIP",
-        params: {
-            cx: cx,
-            cy: cy,      
-            width: rect.width,
-            height: rect.height
-        }
-    } );
+    return { x: cx, y: cy }
 }
 
-chrome.storage.onChanged.addListener( ( changes, area ) => {
-    if( area == "local" && changes.mode ){
-        if( changes.mode.newValue != 2 && interval_id ){
-            clearInterval( interval_id );
-            interval_id = 0;
-        } else if( changes.mode.newValue == 2 && ! interval_id ){
-            interval_id = setInterval( get_skip_coord, 1000 );
+function init()
+{
+    chrome.runtime.onMessage.addListener ( ( msg ) => {
+        switch( msg.msg ){
+            case "SKIPNODE_REQUEST":{
+                const coord = get_skip_coord();
+                chrome.runtime.sendMessage( {
+                    msg: coord ? "SKIPNODE_FOUND" : "SKIPNODE_NOT_FOUND",
+                    params: coord
+                })
+                break;
+            }
+            case "AUTO_SKIP_START":{
+                if( ! mIntervalId ){
+                    mIntervalId = setInterval( () => {
+                        const coord = get_skip_coord();
+                        if( coord ){
+                            chrome.runtime.sendMessage( { msg: "SKIPNODE_FOUND", params: coord } );
+                        }
+                    }, 1000 );
+                }
+                break;
+            }
+            case "AUTO_SKIP_STOP":{
+                if( mIntervalId ){
+                    clearInterval( mIntervalId );
+                    mIntervalId = 0;
+                }
+                break;
+            }
         }
-        pref.mode = changes.mode.newValue;
-    }
-} );
+    } );
 
-chrome.runtime.onMessage.addListener ( ( msg, sender, response ) => {
-    if( pref.mode == 1 ) get_skip_coord();
-} );
+    chrome.runtime.sendMessage( { msg: "READY" } );
+}
 
-( async () => {
-    pref = await chrome.storage.local.get( [ "mode" ] );
-    if( pref.mode == 2 && ! interval_id ){
-        interval_id = setInterval( get_skip_coord, 1000 );
-    }
-} )();
+if( document.readyState === "loading" ){
+    document.addEventListener( "DOMContentLoaded", init, { once: true } );
+} else{
+    init();
+}
