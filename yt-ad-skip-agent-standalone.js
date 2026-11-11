@@ -3,7 +3,7 @@
 let mIntervalId = 0;
 
 const mSelectorList = [
-    "#button-shape",
+    //"#button-shape",
     "#skip-button\\:2",
     ".ytp-skip-ad-button"
 ];

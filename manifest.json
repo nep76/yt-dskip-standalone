@@ -10,7 +10,7 @@
     "128": "icon128.png"
   },
   "permissions": [ "debugger", "tabs", "scripting", "storage", "idle", "alarms" ],
-    "action": {
+  "action": {
     "default_title": "YouTube Ad Skip 切り替え"
   },
   "background" : {
