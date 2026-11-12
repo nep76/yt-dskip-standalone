@@ -3,5 +3,17 @@
         "globals": [
             "chrome"
         ]
-    }
+    },
+    "overrides": [
+        {
+            "includes": [ "popup.html" ],
+            "linter": {
+                "rules": {
+                    "a11y": {
+                        "useValidAnchor": "off"
+                    }
+                }
+            }
+        }
+    ]
 }

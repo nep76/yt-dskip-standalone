@@ -1,32 +1,33 @@
 {
-  "name": "YouTube Ad Skip Agent Standalone",
-  "version": "1.2.0",
+  "name": "YouTube DSkip Standalone",
+  "version": "1.3.0",
   "manifest_version": 3,
-  "description": "スキップボタンの座標を取得して代理クリック",
+  "description": "広告スキップボタンを代理クリックします。",
     "icons": {
     "16": "icon16.png",
     "32": "icon32.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
-  "permissions": [ "debugger", "tabs", "scripting", "storage", "idle", "alarms" ],
+  "permissions": [ "debugger", "tabs", "storage", "idle", "alarms" ],
   "action": {
-    "default_title": "YouTube Ad Skip 切り替え"
+    "default_popup": "popup.html",
+    "default_title": "YouTube DSkip Standalone"
   },
   "background" : {
-    "service_worker": "yt-ad-skip-agent-standalone-worker.js"
+    "service_worker": "yt-dskip-standalone-worker.js"
   },
   "commands": {
     "do-skip": {
       "suggested_key": {
         "default": "Ctrl+Shift+End"
       },
-      "description": "スキップを実行する",
+      "description": "スキップを手動実行する",
       "global": true
     }
   },
   "content_scripts": [{
     "matches": ["*://*.youtube.com/*"],
-    "js": ["yt-ad-skip-agent-standalone.js"]
+    "js": ["yt-dskip-standalone.js"]
   }]
 }

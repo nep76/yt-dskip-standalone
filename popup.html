@@ -2,10 +2,25 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>YouTube Helper</title>
+    <link rel="stylesheet" href="popup.css">
     <script src="popup.js" defer></script>
+    <title>YouTube DSkip</title>
 </head>
 <body>
-    <button type="button" id="break-playlist">プレイリストを抜ける</button>
+    <h1>YouTube DSkip</h1>
+    <fieldset>
+        <legend>広告スキップ</legend>
+        <label><input type="radio" id="mode-off" name="mode" value="OFF">オフ</label>
+        <label><input type="radio" id="mode-manual" name="mode" value="MANUAL">手動</label>
+        <label><input type="radio" id="mode-auto" name="mode" value="AUTO">自動</label>
+    </fieldset>
+    <fieldset>
+        <legend>機能</legend>
+        <button type="button" id="break-playlist">プレイリストを抜ける</button>
+    </fieldset>
+    <div id="thumbnail" hidden><a id="thumbnail-href"><img id="thumbnail-img" alt="サムネイル"></a></div>
+    <footer>
+        <p><a href="http://github.com/nep76">YouTube DSkip</a> © 2026 nep</p>
+    </footer>
 </body>
 </html>

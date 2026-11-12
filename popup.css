@@ -1,0 +1,186 @@
+
+:root {
+    color-scheme: dark;
+
+    --color-primary: #ddd;
+    --color-secondary: #888;
+    --bgcolor-primary: #222;
+    --bgcolor-secondary: #333;
+    --accent-color: #3f6fc4;
+    --inactive-bgcolor: #555;
+    --border-color: #444;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    width: 280px;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    width: 100%;
+    margin: 0;
+    padding: 40px 16px 16px 16px;
+
+    color: var(--color-primary);
+    background: var(--bgcolor-primary);
+
+	font-family: -apple-system,BlinkMacSystemFont,segoe ui,Roboto,Oxygen,Ubuntu,Cantarell,open sans,helvetica neue,sans-serif;
+    font-size: 13px;
+}
+
+h1 {
+	padding: 5px 0;
+	margin: 0;
+	font-size: 14px;
+    text-align: center;
+	color: #999;
+    border-radius: 5px;
+    background-color:var(--bgcolor-secondary);
+    width: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+
+}
+
+h1:before {
+	content: "";
+	display: inline-block;
+	width:18px;
+	height:18px;
+	margin-right: 10px;
+	margin-top: -3px;
+	background: url( "./icon48.png" ) center / contain no-repeat;
+	vertical-align: middle;
+}
+
+footer {
+	margin: 0;
+	text-align: center;
+	color: var(--border-color);
+	font-size: 8px;
+}
+
+footer p {
+    margin: 0;
+    padding: 0;
+}
+footer a {
+    color: var(--border-color);
+}
+footer a:hover {
+    color: var(--inactive-bgcolor);
+}
+
+fieldset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    min-width: 0;
+    margin: 0;
+    padding: 12px;
+
+    border: none;
+    border-radius: 8px;
+}
+
+legend {
+    padding: 0 6px;
+    color: var(--color-secondary);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+label {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 9px;
+
+    color: var(--color-primary);
+    background-color: var(--bgcolor-secondary);
+    border-radius: 5px;
+    font-weight: bold;
+
+    cursor: pointer;
+    transition:
+        background-color 200ms ease,
+        border-color 200ms ease;
+}
+
+label:hover {
+    background-color: var(--inactive-bgcolor);
+}
+
+input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+label:has(input:focus-visible) {
+    outline: 2px solid #80aaff;
+    outline-offset: 2px;
+}
+
+label:has(input:checked) {
+    background-color: var(--accent-color);
+}
+
+button {
+    width: 100%;
+    padding: 9px 12px;
+
+    color: white;
+    background: var(--accent-color);
+    border: 1px solid transparent;
+    border-radius: 5px;
+
+    font: inherit;
+    font-weight: 600;
+
+    cursor: pointer;
+    transition:
+        background-color 120ms ease,
+        transform 80ms ease;
+}
+
+button:hover {
+    background: #5080d4;
+}
+
+button:active {
+    background: #315ba5;
+    transform: translateY(1px);
+}
+
+button:focus-visible,
+label:has(input:focus-visible) {
+    outline: 2px solid #80aaff;
+    outline-offset: 2px;
+}
+
+button:disabled {
+    background-color: var(--inactive-bgcolor);
+    color: var(--color-secondary);
+    transition: none;
+    transform: none;
+}
+
+#thumbnail {
+    width: 100%;
+    padding: 12px;
+}
+
+#thumbnail-img {
+    width: 100%;
+}

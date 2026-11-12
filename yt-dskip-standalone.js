@@ -1,4 +1,4 @@
-// yt-ad-skip-agent-standalone
+// github: https://github.com/nep76/yt-dskip-standalone
 
 let mIntervalId = 0;
 
@@ -7,6 +7,8 @@ const mSelectorList = [
     "#skip-button\\:2",
     ".ytp-skip-ad-button"
 ];
+
+let mIsPending = false;
 
 function get_skip_coord()
 {
@@ -34,16 +36,29 @@ function get_skip_coord()
     return { x: cx, y: cy }
 }
 
+async function send_skipnode( status, coord )
+{
+    if( mIsPending ) return;
+
+    mIsPending = true;
+    
+    await chrome.runtime.sendMessage( {
+        msg: status,
+        params: coord
+    } ).catch( ( e ) => {
+        console.error( "Failed to send skipnode message", e );
+    } ).finally( () => {
+        mIsPending = false;
+    } );
+}
+
 function init()
 {
     chrome.runtime.onMessage.addListener ( ( msg ) => {
         switch( msg.msg ){
             case "SKIPNODE_REQUEST":{
                 const coord = get_skip_coord();
-                chrome.runtime.sendMessage( {
-                    msg: coord ? "SKIPNODE_FOUND" : "SKIPNODE_NOT_FOUND",
-                    params: coord
-                })
+                send_skipnode( coord ? "SKIPNODE_FOUND" : "SKIPNODE_NOT_FOUND", coord );
                 break;
             }
             case "AUTO_SKIP_START":{
@@ -51,7 +66,7 @@ function init()
                     mIntervalId = setInterval( () => {
                         const coord = get_skip_coord();
                         if( coord ){
-                            chrome.runtime.sendMessage( { msg: "SKIPNODE_FOUND", params: coord } );
+                            send_skipnode( "SKIPNODE_FOUND", coord );
                         }
                     }, 1000 );
                 }
