@@ -47,6 +47,7 @@ h1 {
     position: absolute;
     left: 0;
     top: 0;
+    cursor: pointer;
 
 }
 
@@ -59,6 +60,10 @@ h1:before {
 	margin-top: -3px;
 	background: url( "./icon48.png" ) center / contain no-repeat;
 	vertical-align: middle;
+}
+
+h1:hover {
+    color: var(--color-primary);
 }
 
 footer {

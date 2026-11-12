@@ -17,6 +17,10 @@ let mUrl = null;
 
 async function init()
 {
+    document.getElementById( "ext-name" ).addEventListener( "click", () => {
+        window.close();
+    } );
+
     chrome.runtime.sendMessage( { msg: "GET_MODE" }, ( r ) => {
         if( ! r?.success ){
             console.error( "Failed to get configuration:", r );
