@@ -62,6 +62,16 @@ h1:before {
 	vertical-align: middle;
 }
 
+h1:after {
+    content: "︿";
+    display: inline-block;
+	width:18px;
+	height:18px;
+    position: absolute;
+    right: 5px;
+    top: 0;
+}
+
 h1:hover {
     color: var(--color-primary);
 }
