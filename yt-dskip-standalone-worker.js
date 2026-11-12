@@ -15,18 +15,22 @@ chrome.idle.setDetectionInterval( 30 );
 
 async function init()
 {
-    const pref = await chrome.storage.local.get( "mode" );
+    const local   = await chrome.storage.local.get( "mode" );
+    const session = await chrome.storage.session.get( "isSuspend" );
 
-    chrome.idle.queryState( 30, ( state ) => {
-        set_suspend_alarm( state );
+    mIsSuspend = session.isSuspend ?? false;
+
+    const state = await new Promise( ( resolve ) => {
+        chrome.idle.queryState( 30, resolve );
     } );
+    await set_suspend_alarm_async( state );
 
-    if( ( ! Object.hasOwn( pref, "mode" ) ) || ( ! Object.hasOwn( mMode, pref.mode ) ) ){
-        pref.mode = mMode.OFF;
-        await chrome.storage.local.set( { mode: pref.mode } );
+    if( ( ! Object.hasOwn( local, "mode" ) ) || ( ! Object.hasOwn( mMode, local.mode ) ) ){
+        local.mode = mMode.OFF;
+        await chrome.storage.local.set( { mode: local.mode } );
     }
 
-    displayStatus( pref.mode );
+    displayStatus( local.mode );
 }
 
 function displayStatus( mode )
@@ -50,15 +54,22 @@ function displayStatus( mode )
     chrome.action.setBadgeBackgroundColor( { color: bgcolor } );
 }
 
-function set_suspend_alarm( state )
+async function set_suspend_alarm_async( state )
 {
+    const alarm = await chrome.alarms.get( mSuspendAlarmName );
+
     if( state === "active" ){
-        chrome.alarms.clear( mSuspendAlarmName );
+        if( alarm ){
+            await chrome.alarms.clear( mSuspendAlarmName );
+        }
         mIsSuspend = false;
+        await chrome.storage.session.set( { isSuspend: mIsSuspend } );
     } else{
-        chrome.alarms.create( mSuspendAlarmName, {
-            delayInMinutes: mSuspendDelayMin
-        } );
+        if( ! mIsSuspend && ! alarm ){
+            chrome.alarms.create( mSuspendAlarmName, {
+                delayInMinutes: mSuspendDelayMin
+            } );
+        }
     }
 }
 
@@ -112,76 +123,93 @@ async function setSkipMode( mode )
 }
 
 
-chrome.alarms.onAlarm.addListener( ( alarm ) => {
+chrome.alarms.onAlarm.addListener( async ( alarm ) => {
+    await mInitPromise;
+
     if( alarm.name === mSuspendAlarmName ){
         mIsSuspend = true;
+        await chrome.storage.session.set( { isSuspend: mIsSuspend } );
     }
 } );
 
-chrome.runtime.onMessage.addListener( async ( msg, sender, response ) => {
-    switch( msg.msg ){
-        case "GET_MODE":{
-            const pref = await chrome.storage.local.get( "mode" );
-            response( { success: Object.hasOwn( mMode, pref.mode ), params: pref.mode ?? mMode.OFF } );
-            return true;
-        }
-        case "SET_MODE":{
-            const retv = await setSkipMode( msg.params ).catch( () => false );
-            response( { success: retv } );
-            return true;
-        }
-        case "READY":{
-            const pref = await chrome.storage.local.get( "mode" );
-            if( pref.mode === mMode.AUTO ){
-                chrome.tabs.sendMessage( sender.tab.id, { msg: "AUTO_SKIP_START" } ).catch( ( e ) => {
-                    console.error( "Failed to send AUTO_SKIP_START.", e );
-                } );
+chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
+    ( async () => {
+        await mInitPromise;
+
+        const rv = { success: true, params: null };
+
+        switch( msg.msg ){
+            case "GET_MODE":{
+                const pref = await chrome.storage.local.get( "mode" );
+                rv.success = Object.hasOwn( mMode, pref.mode );
+                rv.params  = pref.mode ?? mMode.OFF
+                break;
             }
-            break;
-        }
-        case "SKIPNODE_FOUND": {
-            if( mIsSuspend ) break;
-
-            let attached = false;
-
-            try{
-                await chrome.debugger.attach( { tabId: sender.tab.id }, "1.3" );
-
-                attached = true;
-                
-                await chrome.debugger.sendCommand(
-                    { tabId: sender.tab.id },
-                    "Input.dispatchMouseEvent",
-                    {
-                        type: "mousePressed",
-                        x: msg.params.x,
-                        y: msg.params.y,
-                        button: "left",
-                        clickCount: 1
-                    }
-                );
-
-                await chrome.debugger.sendCommand(
-                    { tabId: sender.tab.id },
-                    "Input.dispatchMouseEvent",
-                    {
-                        type: "mouseReleased",
-                        x: msg.params.x,
-                        y: msg.params.y,
-                        button: "left",
-                        clickCount: 1
-                    }
-                );
-            } catch( e ){
-                console.error( "Failed to click skip.", e );
-            } finally{
-                if( attached ){
-                    await chrome.debugger.detach( { tabId: sender.tab.id } ).catch( () => {} );
+            case "SET_MODE":{
+                rv.success = await setSkipMode( msg.params ).catch( () => false );
+                break;
+            }
+            case "READY":{
+                const pref = await chrome.storage.local.get( "mode" );
+                if( pref.mode === mMode.AUTO ){
+                    chrome.tabs.sendMessage( sender.tab.id, { msg: "AUTO_SKIP_START" } ).catch( ( e ) => {
+                        console.error( "Failed to send AUTO_SKIP_START.", e );
+                    } );
                 }
+                break;
             }
-            break;
-        } 
-    }
+            case "SKIPNODE_FOUND": {
+                if( mIsSuspend ) break;
+
+                let attached = false;
+
+                try{
+                    await chrome.debugger.attach( { tabId: sender.tab.id }, "1.3" );
+
+                    attached = true;
+                    
+                    await chrome.debugger.sendCommand(
+                        { tabId: sender.tab.id },
+                        "Input.dispatchMouseEvent",
+                        {
+                            type: "mousePressed",
+                            x: msg.params.x,
+                            y: msg.params.y,
+                            button: "left",
+                            clickCount: 1
+                        }
+                    );
+
+                    await chrome.debugger.sendCommand(
+                        { tabId: sender.tab.id },
+                        "Input.dispatchMouseEvent",
+                        {
+                            type: "mouseReleased",
+                            x: msg.params.x,
+                            y: msg.params.y,
+                            button: "left",
+                            clickCount: 1
+                        }
+                    );
+                } catch( e ){
+                    throw new Error( "Failed to click skip.", { cause: e } );
+                } finally{
+                    if( attached ){
+                        await chrome.debugger.detach( { tabId: sender.tab.id } ).catch( () => {} );
+                    }
+                }
+                break;
+            }
+            default:
+                throw new Error( `Unknown message: ${msg.msg}` );
+        }
+        response( rv );
+    } )().catch( ( e ) => {
+        console.error( "Failed to handle message", e );
+        response( { success: false } );
+    } );
+
+    return true;
 } );
 
 chrome.commands.onCommand.addListener( async ( command ) => {
@@ -200,13 +228,8 @@ chrome.commands.onCommand.addListener( async ( command ) => {
     }
 } );
 
-chrome.idle.onStateChanged.addListener( ( state ) => {
-    set_suspend_alarm( state );
+chrome.idle.onStateChanged.addListener( async ( state ) => {
+    await set_suspend_alarm_async( state );
 } );
 
-chrome.runtime.onInstalled.addListener( init );
-chrome.runtime.onStartup.addListener( init );
-
-chrome.idle.queryState( 30, ( state ) => {
-    set_suspend_alarm( state );
-} );
+const mInitPromise = init();
