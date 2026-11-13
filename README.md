@@ -18,7 +18,7 @@ YouTubeの広告を自動スキップするChrome拡張です。
 >
 > ### 使用箇所
 > 
-> yt-dskip-standalone-worker.jsの142行目付近からのSKIPNODE_FOUNDメッセージの処理の中で使用しています。
+> yt-dskip-standalone-worker.jsのonMessageイベントリスナーでsw.adskip.node.foundメッセージを処理（182行目付近）する中で使用しています。
 > 
 > 具体的にはデバッガをアタッチ→クリック→デバッガをデタッチと操作しています。
 > 
