@@ -3,8 +3,9 @@
 let mIntervalId = 0;
 
 const mSelectorList = [
-    //"#button-shape",
-    ".ytp-skip-ad-button"
+    "button.ytp-ad-skip-button-modern.ytp-button", //スマホ用
+    ".ytp-skip-ad-button", // PC用
+//    "#button-shape" // テスト用
 ];
 
 let mIsPending = false;

@@ -17,6 +17,10 @@ let mUrl = null;
 
 async function init()
 {
+    if( /Android/i.test(navigator.userAgent) ){
+        mCtrls.mode.MANUAL.hidden = true;
+    }
+
     document.getElementById( "ext-name" ).addEventListener( "click", () => {
         window.close();
     } );
