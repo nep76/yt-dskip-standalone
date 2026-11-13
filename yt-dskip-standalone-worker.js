@@ -7,28 +7,28 @@ const mMode = {
 };
 
 const mSuspendAlarmName = "suspend_timer";
-const mSuspendDelayMin  = 180;
-
-let mIsSuspend = false;
+let mSuspendDelayMin    = 180;
+let mIsSuspend          = false;
 
 chrome.idle.setDetectionInterval( 30 );
 
 async function init()
 {
-    const local   = await chrome.storage.local.get( "mode" );
+    const local   = await chrome.storage.local.get( [ "mode", "suspendDelay" ] );
     const session = await chrome.storage.session.get( "isSuspend" );
 
+    if( ( ! Object.hasOwn( local, "mode" ) ) || ( ! Object.hasOwn( mMode, local.mode ) ) ){
+        local.mode = mMode.OFF;
+        await chrome.storage.local.set( { mode: local.mode } );
+    }
+
+    mSuspendDelayMin = local.suspendDelay ?? mSuspendDelayMin;
     mIsSuspend = session.isSuspend ?? false;
 
     const state = await new Promise( ( resolve ) => {
         chrome.idle.queryState( 30, resolve );
     } );
     await set_suspend_alarm_async( state );
-
-    if( ( ! Object.hasOwn( local, "mode" ) ) || ( ! Object.hasOwn( mMode, local.mode ) ) ){
-        local.mode = mMode.OFF;
-        await chrome.storage.local.set( { mode: local.mode } );
-    }
 
     displayStatus( local.mode );
 }
@@ -100,22 +100,22 @@ async function setSkipMode( mode )
         try{
             if( cur.mode === mMode.AUTO || prev_mode === mMode.AUTO ){
                 const manifest = chrome.runtime.getManifest();
-                const urls = manifest.content_scripts.flatMap( script => script.matches );
+                const urls = manifest.host_permissions;
                 const tabs = await chrome.tabs.query( { url: urls } );
 
                 if( cur.mode === mMode.AUTO ){
                     tabs.filter( ( tab ) => ! tab.discarded ).forEach( ( tab ) => {
-                        chrome.tabs.sendMessage( tab.id, { msg: "AUTO_SKIP_START" } ).catch( () => {} );
+                        chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.auto.start" } ).catch( () => {} );
                     } );
                 } else{
                     tabs.filter( ( tab ) => ! tab.discarded ).forEach( ( tab ) => {
-                        chrome.tabs.sendMessage( tab.id, { msg: "AUTO_SKIP_STOP" } ).catch( () => {} );
+                        chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.auto.stop" } ).catch( () => {} );
                     } );
                 }
             }
             displayStatus( cur.mode );
         } catch( e ){
-            console.error( "Failed to send message of mode change.", e );
+            console.error( "Failed to send mode-change message.", e );
         }
     }
 
@@ -139,26 +139,47 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
         const rv = { success: true, params: null };
 
         switch( msg.msg ){
-            case "GET_MODE":{
+            case "sw.config.mode.get":{
                 const pref = await chrome.storage.local.get( "mode" );
                 rv.success = Object.hasOwn( mMode, pref.mode );
                 rv.params  = pref.mode ?? mMode.OFF
                 break;
             }
-            case "SET_MODE":{
+            case "sw.config.mode.set":{
                 rv.success = await setSkipMode( msg.params ).catch( () => false );
                 break;
             }
-            case "READY":{
+            case "sw.config.suspendDelay.get":{
+                const pref = await chrome.storage.local.get( "suspendDelay" );
+                rv.success = Object.hasOwn( pref, "suspendDelay" );
+                rv.params  = pref.suspendDelay ?? mSuspendDelayMin;
+                break;
+            }
+            case "sw.config.suspendDelay.set":{
+                if( Number.isFinite( msg.params ) ){
+                    if( msg.params < 5 ){
+                        console.error( "Suspend timer interval is too short." );
+                        rv.success = false;
+                    } else{
+                        mSuspendDelayMin = msg.params;
+                        await chrome.storage.local.set( { suspendDelay: msg.params } );
+                    }
+                } else{
+                    console.error( "Illegal value of suspend timer interval." );
+                    rv.success = false;
+                }
+                break;
+            }
+            case "sw.signal.ready":{
                 const pref = await chrome.storage.local.get( "mode" );
                 if( pref.mode === mMode.AUTO ){
-                    chrome.tabs.sendMessage( sender.tab.id, { msg: "AUTO_SKIP_START" } ).catch( ( e ) => {
-                        console.error( "Failed to send AUTO_SKIP_START.", e );
+                    chrome.tabs.sendMessage( sender.tab.id, { msg: "cs.adskip.auto.start" } ).catch( ( e ) => {
+                        console.error( "Failed to send cs.adskip.auto.start.", e );
                     } );
                 }
                 break;
             }
-            case "SKIPNODE_FOUND": {
+            case "sw.adskip.node.found": {
                 if( mIsSuspend ) break;
 
                 let attached = false;
@@ -195,9 +216,16 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
                     throw new Error( "Failed to click skip.", { cause: e } );
                 } finally{
                     if( attached ){
-                        await chrome.debugger.detach( { tabId: sender.tab.id } ).catch( () => {} );
+                        await chrome.debugger.detach( {
+                            tabId: sender.tab.id
+                        } ).catch( ( e ) => {
+                            console.error( "Failed to detach debugger!", e );
+                        } );
                     }
                 }
+                break;
+            }
+            case "sw.adskip.node.notfound":{
                 break;
             }
             default:
@@ -221,7 +249,7 @@ chrome.commands.onCommand.addListener( async ( command ) => {
         if( ! tabs.length ) return;
 
         for( const tab of tabs ){
-            await chrome.tabs.sendMessage( tab.id, { msg: "SKIPNODE_REQUEST" } ).catch( ( e ) => {
+            await chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.node.discover" } ).catch( ( e ) => {
                 console.error( e );
             } );
         }

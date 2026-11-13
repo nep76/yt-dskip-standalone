@@ -4,11 +4,21 @@ let mIntervalId = 0;
 
 const mSelectorList = [
     //"#button-shape",
-    "#skip-button\\:2",
     ".ytp-skip-ad-button"
 ];
 
 let mIsPending = false;
+
+async function init()
+{
+    if( document.readyState === "loading" ){
+        await new Promise( ( resolve ) => {
+            document.addEventListener( "DOMContentLoaded", resolve, { once: true } );
+        } );
+    }
+
+    chrome.runtime.sendMessage( { msg: "sw.signal.ready" } );
+}
 
 function get_skip_coord()
 {
@@ -17,14 +27,16 @@ function get_skip_coord()
     const skipbtn = document.querySelector( mSelectorList.join(",") );
     if( ! skipbtn ) return;
 
-    const style = getComputedStyle( skipbtn );
-    const rect  = skipbtn.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+    const rect = skipbtn.getBoundingClientRect();
+    const cx   = rect.left + rect.width / 2;
+    const cy   = rect.top + rect.height / 2;
+    const hit  = document.elementFromPoint( cx, cy );
     if(
-        skipbtn.offsetParent === null     ||
-        style.display        === "none"   ||
-        style.visibility     === "hidden" ||
-        parseFloat( style.opacity ) === 0 ||
+        ! skipbtn.checkVisibility( { checkOpacity: true, checkVisibilityCSS: true } ) ||
+        ( hit !== skipbtn && ! skipbtn.contains( hit ) ) ||
+        skipbtn.offsetParent === null ||
+        skipbtn.matches( ":disabled" ) ||
+        skipbtn.getAttribute( "aria-disabled" ) === "true" ||
         cx < 0 ||
         cx > window.innerWidth ||
         cy < 0 ||
@@ -52,41 +64,46 @@ async function send_skipnode( status, coord )
     } );
 }
 
-function init()
-{
-    chrome.runtime.onMessage.addListener ( ( msg ) => {
+chrome.runtime.onMessage.addListener ( ( msg, _sender, response ) => {
+    ( async () => {
+        await mInitPromise;
+
         switch( msg.msg ){
-            case "SKIPNODE_REQUEST":{
+            case "cs.adskip.node.discover":{
                 const coord = get_skip_coord();
-                send_skipnode( coord ? "SKIPNODE_FOUND" : "SKIPNODE_NOT_FOUND", coord );
+                send_skipnode( coord ? "sw.adskip.node.found" : "sw.adskip.node.notfound", coord );
                 break;
             }
-            case "AUTO_SKIP_START":{
+            case "cs.adskip.auto.start":{
                 if( ! mIntervalId ){
                     mIntervalId = setInterval( () => {
                         const coord = get_skip_coord();
                         if( coord ){
-                            send_skipnode( "SKIPNODE_FOUND", coord );
+                            send_skipnode( "sw.adskip.node.found", coord );
                         }
                     }, 1000 );
                 }
                 break;
             }
-            case "AUTO_SKIP_STOP":{
+            case "cs.adskip.auto.stop":{
                 if( mIntervalId ){
                     clearInterval( mIntervalId );
                     mIntervalId = 0;
                 }
                 break;
             }
+            default:
+                throw new Error( `Unknown message: ${msg.msg}`);
         }
+
+        response( { success: true } );
+    } )().catch( ( e ) => {
+        console.error( e );
+        response( { success: false } );
     } );
 
-    chrome.runtime.sendMessage( { msg: "READY" } );
-}
+    return true;
+} );
 
-if( document.readyState === "loading" ){
-    document.addEventListener( "DOMContentLoaded", init, { once: true } );
-} else{
-    init();
-}
+const mInitPromise = init();
+

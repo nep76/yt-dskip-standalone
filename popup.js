@@ -21,32 +21,32 @@ async function init()
         window.close();
     } );
 
-    chrome.runtime.sendMessage( { msg: "GET_MODE" }, ( r ) => {
-        if( ! r?.success ){
-            console.error( "Failed to get configuration:", r );
-            return;
-        }
-
+    const r = await chrome.runtime.sendMessage( { msg: "sw.config.mode.get" } );
+    if( ! r?.success ){
+        console.error( "Failed to get mode" );
+    } else{
         mCtrls.mode[r.params].checked = true;
-    } );
+    }
 
-    const manifest = chrome.runtime.getManifest();
-    const urls = manifest.content_scripts.flatMap( script => script.matches );
     const tabs = await chrome.tabs.query( {
         active: true,
-        currentWindow: true,
-        url: urls
+        lastFocusedWindow: true
     } );
 
     if( ! tabs.length ) return;
 
     mTab = tabs[0];
-    mUrl = new URL( mTab.url );
+    
+    try {
+        mUrl = new URL( mTab.url );
+    } catch{
+        //console.error( "Failed to create URL object.", e );
+    }
 }
 
 function set_mode( e )
 {
-    chrome.runtime.sendMessage( { msg: "SET_MODE", params: e.target.value } );
+    chrome.runtime.sendMessage( { msg: "sw.config.mode.set", params: e.target.value } );
 }
 
 function setup_mode_switch()
