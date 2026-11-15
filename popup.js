@@ -4,6 +4,7 @@ const mCtrls = {
         MANUAL: document.getElementById( "mode-manual" ),
         AUTO  : document.getElementById( "mode-auto" )
     },
+    deferOnHover: document.getElementById( "defer-on-hover" ),
     breakPlaylist: document.getElementById( "break-playlist" ),
     thumbnail:{
         root  : document.getElementById( "thumbnail" ),
@@ -17,20 +18,28 @@ let mUrl = null;
 
 async function init()
 {
-    if( /Android/i.test(navigator.userAgent) ){
-        mCtrls.mode.MANUAL.hidden = true;
-    }
-
     document.getElementById( "ext-name" ).addEventListener( "click", () => {
         window.close();
     } );
 
-    const r = await chrome.runtime.sendMessage( { msg: "sw.config.mode.get" } );
-    if( ! r?.success ){
-        console.error( "Failed to get mode" );
-    } else{
-        mCtrls.mode[r.params].checked = true;
+    {
+        const r = await chrome.runtime.sendMessage( { msg: "sw.config.mode.get" } );
+        if( ! r?.success ){
+            console.error( "Failed to get mode" );
+        } else{
+            mCtrls.mode[r.params].checked = true;
+        }
     }
+
+    {
+        const r = await chrome.runtime.sendMessage( { msg: "sw.config.deferOnHover.get" } );
+        if( ! r?.success ){
+            console.error( "Failed to get deferOnHover" );
+        } else{
+            mCtrls.deferOnHover.checked = Boolean( r.params );
+        }
+    }
+    
 
     const tabs = await chrome.tabs.query( {
         active: true,
@@ -58,6 +67,9 @@ function setup_mode_switch()
     mCtrls.mode.OFF.addEventListener( "change", set_mode );
     mCtrls.mode.MANUAL.addEventListener( "change", set_mode );
     mCtrls.mode.AUTO.addEventListener( "change", set_mode );
+    mCtrls.deferOnHover.addEventListener( "change", ( e ) => {
+        chrome.runtime.sendMessage( { msg: "sw.config.deferOnHover.set", params: e.target.checked } );
+    } );
 }
 
 function setup_break_playlist()

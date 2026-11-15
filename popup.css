@@ -93,18 +93,19 @@ footer a {
 footer a:hover {
     color: var(--inactive-bgcolor);
 }
-
 fieldset {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-
     min-width: 0;
     margin: 0;
     padding: 12px;
 
     border: none;
     border-radius: 8px;
+}
+
+fieldset#functions, div#mode {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 legend {
@@ -114,7 +115,7 @@ legend {
     font-weight: 600;
 }
 
-label {
+label:has(input[type="radio"]) {
     flex: 1;
     display: flex;
     justify-content: center;
@@ -131,10 +132,6 @@ label {
         border-color 200ms ease;
 }
 
-label:hover {
-    background-color: var(--inactive-bgcolor);
-}
-
 input[type="radio"] {
     position: absolute;
     opacity: 0;
@@ -142,13 +139,25 @@ input[type="radio"] {
     height: 0;
 }
 
+label:has(input[type="checkbox"]) {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+    border-radius: 5px;
+    color: var(--color-secondary)
+}
+
 label:has(input:focus-visible) {
     outline: 2px solid #80aaff;
     outline-offset: 2px;
 }
 
-label:has(input:checked) {
+label:has(input[type="radio"]:checked) {
     background-color: var(--accent-color);
+}
+
+label:hover {
+    background-color: var(--bgcolor-secondary);
 }
 
 button {

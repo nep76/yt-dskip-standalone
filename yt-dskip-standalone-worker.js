@@ -82,7 +82,7 @@ async function setSkipMode( mode )
     }
 
     try{
-        cur = await chrome.storage.local.get( "mode" );
+        cur = await chrome.storage.local.get( [ "mode", "deferOnHover" ] );
 
         prev_mode = cur.mode;
         cur.mode  = mode;
@@ -105,7 +105,7 @@ async function setSkipMode( mode )
 
                 if( cur.mode === mMode.AUTO ){
                     tabs.filter( ( tab ) => ! tab.discarded ).forEach( ( tab ) => {
-                        chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.auto.start" } ).catch( () => {} );
+                        chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.auto.start", params: { deferOnHover: Boolean( cur.deferOnHover ) } } ).catch( () => {} );
                     } );
                 } else{
                     tabs.filter( ( tab ) => ! tab.discarded ).forEach( ( tab ) => {
@@ -149,6 +149,15 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
                 rv.success = await setSkipMode( msg.params ).catch( () => false );
                 break;
             }
+            case "sw.config.deferOnHover.get": {
+                const pref = await chrome.storage.local.get( "deferOnHover" );
+                rv.params  = Boolean( pref.deferOnHover );
+                break;
+            }
+            case "sw.config.deferOnHover.set": {
+                await chrome.storage.local.set( { deferOnHover: Boolean( msg.params ) } );
+                break;
+            }
             case "sw.config.suspendDelay.get":{
                 const pref = await chrome.storage.local.get( "suspendDelay" );
                 rv.success = Object.hasOwn( pref, "suspendDelay" );
@@ -171,9 +180,9 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
                 break;
             }
             case "sw.signal.ready":{
-                const pref = await chrome.storage.local.get( "mode" );
+                const pref = await chrome.storage.local.get( [ "mode", "deferOnHover" ] );
                 if( pref.mode === mMode.AUTO ){
-                    chrome.tabs.sendMessage( sender.tab.id, { msg: "cs.adskip.auto.start" } ).catch( ( e ) => {
+                    chrome.tabs.sendMessage( sender.tab.id, { msg: "cs.adskip.auto.start", params: { deferOnHover: pref.deferOnHover } } ).catch( ( e ) => {
                         console.error( "Failed to send cs.adskip.auto.start.", e );
                     } );
                 }

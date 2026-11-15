@@ -8,15 +8,20 @@
 </head>
 <body>
     <h1 id="ext-name">YouTube DSkip</h1>
-    <fieldset>
+    <fieldset id="adskip">
         <legend>広告スキップ</legend>
-        <label><input type="radio" id="mode-off" name="mode" value="OFF">オフ</label>
-        <label><input type="radio" id="mode-manual" name="mode" value="MANUAL">手動</label>
-        <label><input type="radio" id="mode-auto" name="mode" value="AUTO">自動</label>
+        <div id="mode">
+            <label title="オフ"><input type="radio" id="mode-off" name="mode" value="OFF">オフ</label>
+            <label title="拡張機能の設定で予め割り当てたホットキーでスキップします。"><input type="radio" id="mode-manual" name="mode" value="MANUAL">手動</label>
+            <label title="スキップ可能タイミングで自動でスキップします。（ホットキーも使用可能）"><input type="radio" id="mode-auto" name="mode" value="AUTO">自動</label>
+        </div>
+        <div id="options">
+            <label title="動画プレイヤー上にポインターを乗せている間は自動スキップを保留します。"><input type="checkbox" id="defer-on-hover">自動スキップをホバーで保留</label>
+        </div>
     </fieldset>
-    <fieldset>
+    <fieldset id="functions">
         <legend>機能</legend>
-        <button type="button" id="break-playlist">プレイリストを抜ける</button>
+        <button title="プレイリスト再生中にプレイリストから抜けて単独の再生ページに移動します。" type="button" id="break-playlist">プレイリストを抜ける</button>
     </fieldset>
     <div id="thumbnail" hidden><a id="thumbnail-href"><img id="thumbnail-img" alt="サムネイル"></a></div>
     <footer>
