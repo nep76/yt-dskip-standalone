@@ -1,14 +1,16 @@
 // github: https://github.com/nep76/yt-dskip-standalone
 
+let mNotification;
 let mIntervalId = 0;
 
 const mSelectorList = [
     "button.ytp-ad-skip-button-modern.ytp-button", //スマホ用
     ".ytp-skip-ad-button", // PC用
-//    "#button-shape" // テスト用
+    //"#button-shape" // テスト用
 ];
 
 const mMouse = {
+    isValid: false,
     pos: {
         x: 0,
         y: 0
@@ -18,8 +20,14 @@ const mMouse = {
 let mDeferOnHover = false;
 let mIsPending = false;
 
+function invalidate_mouse()
+{
+    mMouse.isValid = false;
+}
+
 function update_mouse( ctx )
 {
+    mMouse.isValid = true;
     mMouse.pos.x = ctx.clientX;
     mMouse.pos.y = ctx.clientY;
 }
@@ -32,6 +40,12 @@ async function init()
         } );
     }
 
+    // Unsafe origin エラーがでる
+    //const mod = await import( chrome.runtime.getURL( "ToastNotification.js" ) );
+    //mNotification = new mod.default();
+    mNotification = new ToastNotification();
+    document.body.appendChild( mNotification.getRootElement() );
+
     chrome.runtime.sendMessage( { msg: "sw.signal.ready" } );
 }
 
@@ -41,17 +55,6 @@ function get_skip_coord()
 
     const skipbtn = document.querySelector( mSelectorList.join(",") );
     if( ! skipbtn ) return;
-
-    if( mDeferOnHover ){
-        const player = document.querySelector( "video" );
-        if( player ){
-            const rect = player.getBoundingClientRect();
-            if(
-                mMouse.pos.x >= rect.left  && mMouse.pos.x <= rect.right &&
-                mMouse.pos.y >= rect.top   && mMouse.pos.y <= rect.bottom
-            ) return;
-        }
-    }
 
     const rect = skipbtn.getBoundingClientRect();
     const cx   = rect.left + rect.width / 2;
@@ -70,6 +73,22 @@ function get_skip_coord()
     ){
         return;
     }
+
+    if( mDeferOnHover && mMouse.isValid ){
+        const player = document.querySelector( "video" );
+        if( player ){
+            const rect = player.getBoundingClientRect();
+            if(
+                mMouse.pos.x >= rect.left  && mMouse.pos.x <= rect.right &&
+                mMouse.pos.y >= rect.top   && mMouse.pos.y <= rect.bottom
+            ){
+                mNotification.show( "広告自動スキップが保留されています" );
+                return;
+            }
+        }
+    }
+
+    mNotification.hide();
 
     return { x: cx, y: cy }
 }
@@ -109,13 +128,19 @@ chrome.runtime.onMessage.addListener ( ( msg, _sender, response ) => {
                         }
                     }, 1000 );
                     document.addEventListener( "mousemove", update_mouse );
-                    mDeferOnHover = msg.params?.deferOnHover;
+                    document.documentElement.addEventListener( "mouseleave", invalidate_mouse );
+                    document.addEventListener( "visibilitychange", invalidate_mouse );
+                    window.addEventListener( "blur", invalidate_mouse );
                 }
+                mDeferOnHover = msg.params?.deferOnHover;
                 break;
             }
             case "cs.adskip.auto.stop":{
                 if( mIntervalId ){
                     document.removeEventListener( "mousemove", update_mouse );
+                    document.documentElement.removeEventListener( "mouseleave", invalidate_mouse );
+                    document.removeEventListener( "visibilitychange", invalidate_mouse );
+                    window.removeEventListener( "blur", invalidate_mouse );
                     clearInterval( mIntervalId );
                     mIntervalId = 0;
                     mDeferOnHover = false;
@@ -136,4 +161,3 @@ chrome.runtime.onMessage.addListener ( ( msg, _sender, response ) => {
 } );
 
 const mInitPromise = init();
-

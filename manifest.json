@@ -1,6 +1,6 @@
 {
   "name": "YouTube DSkip Standalone",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "manifest_version": 3,
   "description": "広告スキップボタンを代理クリックします。",
     "icons": {
@@ -16,7 +16,8 @@
   "content_scripts": [
     {
       "matches": ["*://*.youtube.com/*"],
-      "js": ["yt-dskip-standalone.js"]
+      "css": [ "ToastNotification.css" ],
+      "js": ["ToastNotificationNoMod.js", "yt-dskip-standalone.js"]
     }
   ],
   "action": {
