@@ -187,18 +187,26 @@ chrome.runtime.onMessage.addListener ( ( msg, _sender, response ) => {
                             send_skipnode( "sw.adskip.node.found", coord );
                         }
                     }, 1000 );
-                    setup_handlers_for_autoskip_interaction( true );
                 }
-                mDeferOnHover = msg.params?.deferOnHover;
+                
+                const new_doh = Boolean( msg.params?.deferOnHover );
+                if( mDeferOnHover !== new_doh ){
+                    setup_handlers_for_autoskip_interaction( new_doh );
+                    mDeferOnHover = new_doh;
+                    mCancelAutoSkip.enabled = false;
+                }
                 break;
             }
             case "cs.adskip.auto.stop":{
                 if( mIntervalId ){
-                    setup_handlers_for_autoskip_interaction( false );
                     clearInterval( mIntervalId );
                     mIntervalId = 0;
                 }
-                mDeferOnHover = false;
+                if( mDeferOnHover ){
+                    setup_handlers_for_autoskip_interaction( false );
+                    mDeferOnHover = false;
+                    mCancelAutoSkip.enabled = false;
+                }
                 break;
             }
             default:

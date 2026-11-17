@@ -96,28 +96,23 @@ async function setSkipMode( mode )
         console.error( "Failed to read/write configuration", e );
     }
 
-    if( cur.mode !== prev_mode ){
-        try{
-            if( cur.mode === mMode.AUTO || prev_mode === mMode.AUTO ){
-                const manifest = chrome.runtime.getManifest();
-                const urls = manifest.host_permissions;
-                const tabs = await chrome.tabs.query( { url: urls } );
+    if( cur.mode === mMode.AUTO || prev_mode === mMode.AUTO ){
+        const manifest = chrome.runtime.getManifest();
+        const urls = manifest.host_permissions;
+        const tabs = await chrome.tabs.query( { url: urls } );
 
-                if( cur.mode === mMode.AUTO ){
-                    tabs.filter( ( tab ) => ! tab.discarded ).forEach( ( tab ) => {
-                        chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.auto.start", params: { deferOnHover: Boolean( cur.deferOnHover ) } } ).catch( () => {} );
-                    } );
-                } else{
-                    tabs.filter( ( tab ) => ! tab.discarded ).forEach( ( tab ) => {
-                        chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.auto.stop" } ).catch( () => {} );
-                    } );
-                }
-            }
-            displayStatus( cur.mode );
-        } catch( e ){
-            console.error( "Failed to send mode-change message.", e );
+        if( cur.mode === mMode.AUTO ){
+            tabs.filter( ( tab ) => ! tab.discarded ).forEach( ( tab ) => {
+                chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.auto.start", params: { deferOnHover: cur.deferOnHover } } ).catch( () => {} );
+            } );
+        } else if( prev_mode === mMode.AUTO ){
+            tabs.filter( ( tab ) => ! tab.discarded ).forEach( ( tab ) => {
+                chrome.tabs.sendMessage( tab.id, { msg: "cs.adskip.auto.stop" } ).catch( () => {} );
+            } );
         }
     }
+
+    displayStatus( cur.mode );
 
     return true;
 }
@@ -155,7 +150,11 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
                 break;
             }
             case "sw.config.deferOnHover.set": {
+                const pref = await chrome.storage.local.get( "mode" );
                 await chrome.storage.local.set( { deferOnHover: Boolean( msg.params ) } );
+                if( pref.mode === mMode.AUTO ){
+                    rv.success = await setSkipMode( pref.mode ).catch( () => false );
+                }
                 break;
             }
             case "sw.config.suspendDelay.get":{
@@ -182,9 +181,7 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
             case "sw.signal.ready":{
                 const pref = await chrome.storage.local.get( [ "mode", "deferOnHover" ] );
                 if( pref.mode === mMode.AUTO ){
-                    chrome.tabs.sendMessage( sender.tab.id, { msg: "cs.adskip.auto.start", params: { deferOnHover: pref.deferOnHover } } ).catch( ( e ) => {
-                        console.error( "Failed to send cs.adskip.auto.start.", e );
-                    } );
+                    chrome.tabs.sendMessage( sender.tab.id, { msg: "cs.adskip.auto.start", params: { deferOnHover: pref.deferOnHover } } );
                 }
                 break;
             }
@@ -238,11 +235,15 @@ chrome.runtime.onMessage.addListener( ( msg, sender, response ) => {
                 break;
             }
             default:
-                throw new Error( `Unknown message: ${msg.msg}` );
+                throw new Error( "Unknown message" );
         }
         response( rv );
     } )().catch( ( e ) => {
-        console.error( "Failed to handle message", e );
+        console.error( "Failed to handle message", {
+            message: msg.msg,
+            params: msg.params,
+            cause: e
+        } );
         response( { success: false } );
     } );
 
