@@ -9,27 +9,41 @@ const mSelectorList = [
     //"#button-shape" // テスト用
 ];
 
-const mMouse = {
+const mPointer = {
     isValid: false,
     pos: {
         x: 0,
         y: 0
     }
 }
+const mCancelAutoSkip = {
+    enabled: false,
+    waitForSkipNode: false
+};
 
 let mDeferOnHover = false;
 let mIsPending = false;
 
-function invalidate_mouse()
+function invalidate_pointer()
 {
-    mMouse.isValid = false;
+    mPointer.isValid = false;
 }
 
-function update_mouse( ctx )
+function update_pointer( ctx )
 {
-    mMouse.isValid = true;
-    mMouse.pos.x = ctx.clientX;
-    mMouse.pos.y = ctx.clientY;
+    mPointer.isValid = true;
+    mPointer.pos.x = ctx.clientX;
+    mPointer.pos.y = ctx.clientY;
+}
+
+function touch_autoskip_pending( ctx )
+{
+    if( ctx.pointerType === "touch" ) update_pointer( ctx );
+}
+
+function touch_autoskip_reset( ctx )
+{
+    if( ctx.pointerType === "touch" ) invalidate_pointer();
 }
 
 async function init()
@@ -49,12 +63,15 @@ async function init()
     chrome.runtime.sendMessage( { msg: "sw.signal.ready" } );
 }
 
-function get_skip_coord()
+function get_skip_coord( force_skip )
 {
     if( document.hidden ) return;
 
     const skipbtn = document.querySelector( mSelectorList.join(",") );
-    if( ! skipbtn ) return;
+    if( ! skipbtn ){
+        if( ! mCancelAutoSkip.waitForSkipNode ) mCancelAutoSkip.enabled = false;
+        return;
+    }
 
     const rect = skipbtn.getBoundingClientRect();
     const cx   = rect.left + rect.width / 2;
@@ -71,19 +88,28 @@ function get_skip_coord()
         cy < 0 ||
         cy > window.innerHeight
     ){
+        if( ! mCancelAutoSkip.waitForSkipNode ) mCancelAutoSkip.enabled = false;
         return;
     }
 
-    if( mDeferOnHover && mMouse.isValid ){
-        const player = document.querySelector( "video" );
-        if( player ){
-            const rect = player.getBoundingClientRect();
-            if(
-                mMouse.pos.x >= rect.left  && mMouse.pos.x <= rect.right &&
-                mMouse.pos.y >= rect.top   && mMouse.pos.y <= rect.bottom
-            ){
-                mNotification.show( "広告自動スキップが保留されています" );
-                return;
+    mCancelAutoSkip.waitForSkipNode = false;
+
+    if( ! force_skip ){
+        if( mCancelAutoSkip.enabled ){
+            return;
+        } else{
+            if( mDeferOnHover && mPointer.isValid ){
+                const player = document.querySelector( "video" );
+                if( player ){
+                    const rect = player.getBoundingClientRect();
+                    if(
+                        mPointer.pos.x >= rect.left && mPointer.pos.x <= rect.right &&
+                        mPointer.pos.y >= rect.top  && mPointer.pos.y <= rect.bottom
+                    ){
+                        mNotification.show( "広告自動スキップが保留されています" );
+                        return;
+                    }
+                }
             }
         }
     }
@@ -91,6 +117,27 @@ function get_skip_coord()
     mNotification.hide();
 
     return { x: cx, y: cy }
+}
+
+function cancel_autoskip( e )
+{
+    if( mCancelAutoSkip.enabled ) return;
+
+    const player = document.querySelector( "video" );
+    if( player ){
+        const rect = player.getBoundingClientRect();
+        if(
+            e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top  && e.clientY <= rect.bottom
+        ){
+            mCancelAutoSkip.enabled         = true;
+            mCancelAutoSkip.waitForSkipNode = true;
+            mNotification.show( "再生中、または次の広告の自動スキップをキャンセルします" );
+
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }
 }
 
 async function send_skipnode( status, coord )
@@ -109,13 +156,26 @@ async function send_skipnode( status, coord )
     } );
 }
 
+function setup_handlers_for_autoskip_interaction( setup )
+{
+    const action = setup ? "addEventListener" : "removeEventListener";
+
+    document[action]( "mousemove", update_pointer );
+    document.documentElement[action]( "mouseleave", invalidate_pointer );
+    document[action]( "visibilitychange", invalidate_pointer );
+    window[action]( "blur", invalidate_pointer );
+    document[action]( "contextmenu", cancel_autoskip );
+    document[action]( "pointerdown", touch_autoskip_pending );
+    document[action]( "pointerup", touch_autoskip_reset );
+}
+
 chrome.runtime.onMessage.addListener ( ( msg, _sender, response ) => {
     ( async () => {
         await mInitPromise;
 
         switch( msg.msg ){
             case "cs.adskip.node.discover":{
-                const coord = get_skip_coord();
+                const coord = get_skip_coord( true );
                 send_skipnode( coord ? "sw.adskip.node.found" : "sw.adskip.node.notfound", coord );
                 break;
             }
@@ -127,24 +187,18 @@ chrome.runtime.onMessage.addListener ( ( msg, _sender, response ) => {
                             send_skipnode( "sw.adskip.node.found", coord );
                         }
                     }, 1000 );
-                    document.addEventListener( "mousemove", update_mouse );
-                    document.documentElement.addEventListener( "mouseleave", invalidate_mouse );
-                    document.addEventListener( "visibilitychange", invalidate_mouse );
-                    window.addEventListener( "blur", invalidate_mouse );
+                    setup_handlers_for_autoskip_interaction( true );
                 }
                 mDeferOnHover = msg.params?.deferOnHover;
                 break;
             }
             case "cs.adskip.auto.stop":{
                 if( mIntervalId ){
-                    document.removeEventListener( "mousemove", update_mouse );
-                    document.documentElement.removeEventListener( "mouseleave", invalidate_mouse );
-                    document.removeEventListener( "visibilitychange", invalidate_mouse );
-                    window.removeEventListener( "blur", invalidate_mouse );
+                    setup_handlers_for_autoskip_interaction( false );
                     clearInterval( mIntervalId );
                     mIntervalId = 0;
-                    mDeferOnHover = false;
                 }
+                mDeferOnHover = false;
                 break;
             }
             default:
